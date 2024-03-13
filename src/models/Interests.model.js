@@ -1,15 +1,13 @@
 const Model = require('./base')
-const Tasks = require("./Tasks.model");
-const Users = require("./Users.model");
 
-class ResourceAccess extends Model {
+class Interests extends Model {
     static get tableName() {
-        return "resource_access"
+        return "interests"
     }
 
 
     static get encodedIdAttributes() {
-        return ["id", 'userId', 'batchId','taskId']
+        return ["id", 'userId', ]
     }
 
     static get jsonAttributes() {
@@ -17,23 +15,22 @@ class ResourceAccess extends Model {
     }
 
     static get utcDateAttributes() {
-        return ["createdAt", "updatedAt", ]
+        return ["createdAt", "updatedAt"]
     }
+
 
     static get relationMappings() {
 
-
         const Users = require('../models/Users.model')
         return {
-            user: {
+            tasks: {
                 relation: Model.BelongsToOneRelation,
                 modelClass: Users,
                 join: {
-                    from: `${Users.tableName}.id`,
-                    to: `${Friends.tableName}.userId`,
+                    from: `${Interests.tableName}.userId`,
+                    to: `${Users.tableName}.id`,
                 }
             },
-
         }
     }
 
@@ -43,4 +40,4 @@ class ResourceAccess extends Model {
 }
 
 
-module.exports = ResourceAccess;
+module.exports = Interests;

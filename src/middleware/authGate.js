@@ -17,6 +17,7 @@ export default async (req, res, next) => {
                     message: 'Unauthorized No user',
                 });
             }
+
             const dbUser = await Users.query().where({supabaseUuid: user.id}).first()
             if (dbUser) {
                 req.user = {
@@ -28,7 +29,8 @@ export default async (req, res, next) => {
             } else {
                 await Users.query().insert({
                     supabaseUuid: user.id,
-                    email: user.email
+                    email: user.email,
+                    name: user.user_metadata.name
                 })
             }
 

@@ -23,7 +23,12 @@ class Users extends Model {
     }
 
     $formatJson(json) {
-        return super.$formatJson(json)
+
+        const data = super.$formatJson(json)
+
+        delete data.supabaseUuid;
+        delete data.createdAt;
+        return data
     }
 }
 

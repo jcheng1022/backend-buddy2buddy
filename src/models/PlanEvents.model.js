@@ -1,13 +1,14 @@
 const Model = require('./base')
+const Users = require("./Users.model");
 
-class Batches extends Model {
+class PlanEvents extends Model {
     static get tableName() {
-        return "batches"
+        return "plan_events"
     }
 
 
     static get encodedIdAttributes() {
-        return ["id", 'userId', 'batchId']
+        return ["id", 'planId']
     }
 
     static get jsonAttributes() {
@@ -18,16 +19,17 @@ class Batches extends Model {
         return ["createdAt", "updatedAt"]
     }
 
+
     static get relationMappings() {
 
-        const Tasks = require('../models/Tasks.model')
+        const Plans = require('../models/Plans.model')
         return {
-            tasks: {
-                relation: Model.HasManyRelation,
-                modelClass: Tasks,
+            plan: {
+                relation: Model.BelongsToOneRelation,
+                modelClass: Plans,
                 join: {
-                    from: `${Tasks.tableName}.batchId`,
-                    to: `${Batches.tableName}.id`,
+                    from: `${Plans.tableName}.id`,
+                    to: `${PlanEvents.tableName}.planId`,
                 }
             },
         }
@@ -39,4 +41,4 @@ class Batches extends Model {
 }
 
 
-module.exports = Batches;
+module.exports = PlanEvents;

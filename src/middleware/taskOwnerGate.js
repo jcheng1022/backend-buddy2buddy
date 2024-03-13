@@ -1,7 +1,7 @@
 import response from '../utils/response.js'
 import {decodeId} from "../utils/hashId";
 import {RESOURCE_TYPES} from "../utils/constants";
-import Tasks from '../models/Tasks.model'
+import Tasks from '../models/Interests.model'
 import Batches from '../models/Batches.model'
 
 

@@ -1,15 +1,13 @@
 const Model = require('./base')
-const Tasks = require("./Tasks.model");
-const Users = require("./Users.model");
 
-class Friends extends Model {
+class Buddies extends Model {
     static get tableName() {
-        return "friends"
+        return "buddies"
     }
 
 
     static get encodedIdAttributes() {
-        return ["id", 'requestedBy', 'recipientId']
+        return ["id", 'senderId', 'recipientId' ]
     }
 
     static get jsonAttributes() {
@@ -17,8 +15,9 @@ class Friends extends Model {
     }
 
     static get utcDateAttributes() {
-        return ["createdAt", "updatedAt", "acceptedDate"]
+        return ["createdAt", "updatedAt"]
     }
+
 
     static get relationMappings() {
 
@@ -30,7 +29,7 @@ class Friends extends Model {
                 modelClass: Users,
                 join: {
                     from: `${Users.tableName}.id`,
-                    to: `${Friends.tableName}.requestedBy`,
+                    to: `${Buddies.tableName}.senderId`,
                 }
             },
             recipient: {
@@ -38,19 +37,12 @@ class Friends extends Model {
                 modelClass: Users,
                 join: {
                     from: `${Users.tableName}.id`,
-                    to: `${Friends.tableName}.recipientId`,
+                    to: `${Buddies.tableName}.recipientId`,
                 }
             },
-            // requestedBy: {
-            //     relation: Model.BelongsToOneRelation,
-            //     modelClass: Users,
-            //     join: {
-            //         from: `${Users.tableName}.id`,
-            //         to: `${Friends.tableName}.requestedBy`,
-            //     }
-            // },
         }
     }
+
 
     $formatJson(json) {
         return super.$formatJson(json)
@@ -58,4 +50,4 @@ class Friends extends Model {
 }
 
 
-module.exports = Friends;
+module.exports = Buddies;

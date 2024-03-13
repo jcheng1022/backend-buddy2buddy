@@ -1,13 +1,13 @@
 const Model = require('./base')
 
-class Tasks extends Model {
+class Notifications extends Model {
     static get tableName() {
-        return "tasks"
+        return "notifications"
     }
 
 
     static get encodedIdAttributes() {
-        return ["id", 'userId', 'batchId']
+        return ["id", "recipient_id", "sender_id"]
     }
 
     static get jsonAttributes() {
@@ -23,9 +23,12 @@ class Tasks extends Model {
     }
 
     $formatJson(json) {
-        return super.$formatJson(json)
+
+        const data = super.$formatJson(json)
+
+        return data
     }
 }
 
 
-module.exports = Tasks;
+module.exports = Notifications;

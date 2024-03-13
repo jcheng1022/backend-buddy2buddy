@@ -1,20 +1,14 @@
-
 import {catchWrapper} from "../utils/errorHandling";
 import response from '../utils/response'
-import _ from 'underscore'
+import Plans from '../models/Plans.model'
+import Interests from '../models/Interests.model'
+import Buddies from '../models/Buddies.model'
+import Notifications from '../models/Notifications.model'
+import PlanAttendees from '../models/PlanAttendees.model'
+import {decodeId, encodeId} from "../utils/hashId";
 import Users from '../models/Users.model'
-import Batches from '../models/Batches.model'
-import Tasks from '../models/Tasks.model'
-import Friends from '../models/Friends.model'
-import { raw } from 'objection'
-
-
-
-import {decodeId} from "../utils/hashId";
-import {FRIEND_STATUS} from "../utils/constants";
-import dayjs from "dayjs";
-
-
+import {STATUS} from "../utils/constants";
+import PusherClient from "../services/pusherClient";
 class UsersController {
 
     @catchWrapper
@@ -27,204 +21,211 @@ class UsersController {
         })
     }
     @catchWrapper
-    static async getMenuData(req,res) {
-
-        // let data;
+    static async getUserFriends(req,res) {
+        const { status = STATUS.ACCEPTED } = req.query;
         const userId = decodeId(req.user.id)
-        const selectOptions = ['id','name']
+        let data = await Buddies.query()
+            .withGraphFetched(`[sender, recipient]`)
+            .where(builder => builder.where({
+                senderId:userId
+            }).orWhere({
+                recipientId: userId
+            })).andWhere({status : status})
+        data = data.map(o => {
 
-        const batches = await Batches.query()
-            .withGraphFetched('tasks')
-            .modifyGraph('tasks',
-                    builder => builder.select([...selectOptions, 'batchId', 'status']))
-            .select(selectOptions)
-            .where({userId})
-        const tasks = await Tasks.query().select([...selectOptions, 'batchId']).whereNull('batchId').andWhere({userId})
+            if (o && o.recipientId !== userId.toString()) {
+                return {
+                    id: encodeId(o.id),
+                    friendId: encodeId( o.recipientId),
+                    friendName: o.recipient.name,
+                    friendEmail: o.recipient.email,
+                    status: o.status
+                }
+            } else {
+                return {
+                    id: encodeId(o.id),
+                    friendId: encodeId(o.senderId),
+                    friendName: o.sender.name,
+                    friendEmail: o.sender.email,
+                    status: o.status
+                }
+            }
 
-        const friendCount = await Friends.query().where({ status: 'ACCEPTED'}).andWhere(builder =>builder.where({requestedBy: userId}).orWhere({recipientId: userId}) ).count().first();
 
+        })
+        return response(res, {
+            code: 200,
+            data
+        })
+    }
+
+    @catchWrapper
+    static async sendBuddyRequest(req,res) {
+
+        const {email} = req.body
+
+        if (!email) {
+            throw `Missing recipient email`
+
+        }
+
+
+        const recipient = await Users.query().where({
+            email
+        }).first()
+
+
+        if (!recipient) {
+            throw `Email is not associated with any user`
+        }
+
+        const userId = decodeId(req.user.id)
+
+        // check if exists
+        //
+        const existing  = await Buddies.query()
+            .where(builder => builder.where({
+            senderId:userId,
+            recipientId: recipient.id
+        }).orWhere({
+            recipientId: userId,
+            senderId: recipient.id
+        })).first()
+
+        if (existing && existing.status === STATUS.PENDING) {
+            throw `Friend request already exists`
+        } else if (existing && existing.status === 'ACCEPTED') {
+            throw `You are already friends`
+        }
+
+
+        await Buddies.query().insert({
+            senderId: userId,
+            recipientId: recipient.id,
+            status: STATUS.PENDING
+        })
+
+        // await Notifications.query().insert({
+        //     recipientId: recipient.id,
+        //     message: `You have a new buddy request from ${req.user.name} (${email})`,
+        //     type: 'friend-request',
+        //     senderId: userId
+        // })
+
+        await PusherClient.sendMessage({
+            channelName: `user-${encodeId(recipient.id)}`,
+            eventName: 'notification',
+            message: 'buddy-request'
+        })
+        //
+        //
+
+
+        return response(res, {
+            code: 200,
+            message: 'Success'
+            // data
+        })
+    }
+
+    @catchWrapper
+    static async updateBuddyRequest(req,res) {
+
+        const {buddyId} = req.params;
+        const { status = STATUS.ACCEPTED } = req.body;
+        const userId = decodeId(req.user.id);
+        const decodedBuddyId = decodeId(buddyId);
+
+        // find buddy
+
+        const exists = await Buddies.query().findById(decodedBuddyId);
+        if (!exists) {
+            throw `Buddy does not exist`
+        }
+
+        // make sure the responding user is the recipient
+        if (exists.recipientId !== userId.toString()) {
+            throw `You are not the recipient of this request`
+        }
+
+        // make sure the request is pending
+        if (exists.status !== STATUS.PENDING) {
+            throw `Request is not pending`
+        }
+
+        // update status
+        await Buddies.query().findById(decodedBuddyId).patch({
+            status
+        })
+
+
+        //
+        // await PusherClient.sendMessage({
+        //     channelName: `user-${encodeId(recipient.id)}`,
+        //     eventName: 'notification',
+        //     message: 'buddy-request'
+        // })
+
+
+
+        return response(res, {
+            code: 200,
+            message: 'Success'
+        })
+    }
+
+
+    @catchWrapper
+    static async getUserProfile(req,res) {
+
+        const userId = decodeId(req.user.id)
+
+        const plans = await PlanAttendees.query().withGraphFetched('plan').where({
+            userId,
+            status: STATUS.ACCEPTED
+        })
+
+        const interests = await Interests.query().where({
+            userId
+        })
+
+
+        return response(res, {
+            code: 200,
+            data : {
+                plans: plans.map(o => o.plan),
+                interests
+            }
+        })
+    }
+
+
+
+    @catchWrapper
+    static async getUserNotifications(req,res) {
+        const { size = 10, page = 1 } = req.query
+
+        let {results, total} = await Notifications.query().where({
+            recipientId: decodeId(req.user.id)
+        }) .page(+page - 1, +size)
+
+        results = results
+            .sort((a, b) => (a.isRead === b.isRead) ? 0 : a.isRead ? 1 : -1)
+            .map(o => ({
+                ...o,
+                id: encodeId(o.id),
+                recipientId: encodeId(o.recipientId),
+                senderId: o.senderId && encodeId(o.senderId)
+            }));
         return response(res, {
             code: 200,
             data: {
-                batches,
-                tasks,
-                friendCount
+                results,
+                total
             }
         })
     }
 
-    @catchWrapper
-    static async updateUserPresence(req,res) {
-        if (!req.user) {
-            throw `Missing user`
-        }
-
-        const presenceProps = ['firstName', 'lastName', 'username', 'lastVisited']
-
-        let resultingEntry = _.pick(req.body, presenceProps)
-
-        await Users.query().findById(decodeId(req.user.id)).patch({
-            ...resultingEntry
-        })
-
-
-        return response(res, {
-            code: 200,
-            data: resultingEntry,
-            message: 'Successfully updated user'
-        })
-    }
-
-
-    @catchWrapper
-    static async getFriendsByUser(req,res) {
-        const {status = 'ACCEPTED', countsOnly} = req.query;
-
-        if (!Object.values(FRIEND_STATUS).includes(status)) {
-            throw `Not a valid friend status`
-        }
-        // let data;
-        const userId = decodeId(req.user.id)
-
-        let data;
-
-        if (countsOnly ) {
-
-             data = await Friends
-                 .query()
-                 .select([
-                     Friends.query().where({ status: 'ACCEPTED' }).andWhere(qb => {
-                         qb.where('recipient_id', userId).orWhere({requestedBy: userId});
-                     }).count().as('accepted_count'),
-                     Friends.query().where({ status: 'PENDING', recipient_id: userId }).count().as('pending_count')
-                 ])
-                 .first();
-
-
-        } else {
-            if (status === FRIEND_STATUS.ACCEPTED) {
-                data = await Friends.query()
-                    .withGraphFetched('[sender, recipient]')
-                    .modifyGraph('sender',
-                            builder => builder.select(['id', 'username']))
-                    .modifyGraph('recipient',
-                        builder => builder.select(['id', 'username']))
-                    .where({status: FRIEND_STATUS.ACCEPTED})
-                    .andWhere(builder => builder.where({recipientId: userId}).orWhere({requestedBy: userId}))
-
-            } else if (status === FRIEND_STATUS.PENDING) {
-                data = await Friends.query().withGraphFetched('sender').modifyGraph('sender', builder => builder.select(['id', 'username'])).where({recipientId: userId, status})
-            }
-
-        }
-
-
-
-
-
-        return response(res, {
-            code: 200,
-            data
-        })
-    }
-
-    @catchWrapper
-    static async getUsersBySearch(req,res) {
-        const {username = ''} = req.query;
-        if (!username) {
-            throw `Missing username`
-        }
-
-        const userId = decodeId(req.user.id)
-        const data = await Users.query().select(['id','username']).where('username', 'like', `%${username}%`).whereNot({id: userId})
-
-
-
-
-        return response(res, {
-            code: 200,
-            data
-        })
-    }
-
-    @catchWrapper
-    static async sendFriendRequest(req,res) {
-        const {friendId} = req.params;
-        if (!friendId) {
-            throw `Missing friend ID`
-        }
-
-        // let data;
-        const userId = decodeId(req.user.id)
-        const friend = decodeId(friendId)
-        if (friend === -1) {
-            throw `Not valid friend ID`
-        }
-        const existing = await Friends.query().where({requestedBy: userId, recipientId: friend}).orWhere({recipientId: userId, requestedBy:friend}).first();
-
-        if (existing) {
-            if (existing.status === FRIEND_STATUS.ACCEPTED) {
-                throw `Already friends`
-            } else if (existing.status === FRIEND_STATUS.PENDING) {
-                throw `Friend request exists already`
-            } else if (existing.status === FRIEND_STATUS.DECLINED) {
-                throw `User has previously declined the friend request`
-            }
-        }
-
-       await Friends.query().insert({
-            requestedBy: userId,
-            recipientId: friend,
-            status: FRIEND_STATUS.PENDING
-        })
-
-
-
-        return response(res, {
-            code: 200,
-            message: 'Success - Request Sent'
-        })
-    }
-
-    @catchWrapper
-    static async updateFriendRequest(req,res) {
-
-        const {friendId, status = FRIEND_STATUS.ACCEPTED} = req.params;
-        if (!friendId) {
-            throw `Missing friend ID`
-        }
-        console.log(req.user.id, 22, decodeId(req.user.id), friendId, decodeId(friendId))
-
-        // let data;
-        const userId = decodeId(req.user.id)
-        const friend = decodeId(friendId)
-
-        if (friend === -1) {
-            throw `Not valid friend ID`
-        }
-
-        console.log(userId, friend)
-        const existing = await Friends.query().where({requestedBy: friend, recipientId: userId}).first();
-
-        if (!existing) {
-            throw `Could not find friend request`
-        }
-
-        if (existing?.status === FRIEND_STATUS.ACCEPTED ) {
-            throw `Friend request has already been accepted`
-        }
-        await existing.$query().patch({
-            status,
-            acceptedDate: dayjs().format()
-        })
-
-
-
-        return response(res, {
-            code: 200,
-            message: 'Success - Request Updated'
-        })
-    }
 }
 
 export default UsersController;
