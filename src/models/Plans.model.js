@@ -36,7 +36,7 @@ class Plans extends Model {
                 }
             },
 
-            plan: {
+            planEvents: {
                 relation: Model.HasManyRelation,
                 modelClass: PlanEvents,
                 join: {

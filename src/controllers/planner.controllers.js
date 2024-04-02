@@ -150,13 +150,39 @@ class PlannerController {
         const {planId } = req.params;
 
         const data = await Plans.query()
-            // .select([
-            //     `${Plans.tableName}.*`,
-            //     Plans.relatedQuery('plan').as('planEvents'),
-            //     Plans.relatedQuery('attendees').as('attendees')
-            // ])
-            .withGraphFetched('[creator, attendees, attendees.user]')
+
+            .withGraphFetched('[creator, attendees, attendees.user, planEvents]')
+            .modifyGraph('planEvents', builder => {
+                builder.select(['id', 'data', 'createdAt'])
+            })
             .findById(decodeId(planId))
+
+        return response(res, {
+            code: 200,
+            data,
+            message: 'Success'
+        })
+    }
+
+    @catchWrapper
+    static async addPlanEvent(req,res) {
+        const {planId } = req.params;
+        const { planEvent } = req.body;
+
+        if (!planEvent) {
+            throw `Missing plan event`
+        }
+
+        const plan = await Plans.query().findById(decodeId(planId))
+
+        if (!plan) {
+            throw `Plan not found`
+        }
+
+        const data = await plan.$relatedQuery('planEvents').insert({
+            planId: decodeId(planId),
+            data: planEvent
+        })
 
         return response(res, {
             code: 200,

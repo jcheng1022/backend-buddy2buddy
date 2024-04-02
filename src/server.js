@@ -9,6 +9,7 @@ import {yelpClient} from "./services/yelp";
 import yelpRouter from "./routes/yelp.routes";
 import plannerRouter from "./routes/planner.routes";
 import NotificationService from "./services/core/notifications.services";
+import servicesRouter from "./routes/services.routes";
 
 dotenv.config();
 
@@ -46,6 +47,7 @@ app.use(cors())
 app.use('/user', userRouter);
 app.use('/yelp', yelpRouter);
 app.use('/planner', plannerRouter);
+app.use('/services', servicesRouter);
 
 
 

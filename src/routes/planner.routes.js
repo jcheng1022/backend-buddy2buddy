@@ -12,6 +12,8 @@ plannerRouter.patch('/plan/:planId/user', authGate, PlannerController.updatePlan
 
 
 plannerRouter.get('/plan/:planId', authGate, PlannerController.getPlanById)
+plannerRouter.post('/plan/:planId/plan-event', authGate, PlannerController.addPlanEvent)
+
 
 
 

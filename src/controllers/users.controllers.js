@@ -176,6 +176,25 @@ class UsersController {
 
 
     @catchWrapper
+    static async getUserPlans(req,res) {
+        console.log(`hit`)
+
+        const userId = decodeId(req.user.id)
+
+        const plans = await PlanAttendees.query().withGraphFetched('plan').where({
+            userId,
+            status: STATUS.ACCEPTED
+        })
+
+
+
+
+        return response(res, {
+            code: 200,
+            data :  plans.map(o => o.plan)
+        })
+    }
+    @catchWrapper
     static async getUserProfile(req,res) {
 
         const userId = decodeId(req.user.id)

@@ -10,8 +10,8 @@ class YelpController {
     @catchWrapper
     static async searchBusinesses(req,res) {
 
-
-        const { name = '', location = 'new york, ny', limit = 10} = req.body;
+    console.log(`hit`)
+        const { name = '', location = 'new york, ny', limit = 10} = req.query;
         if (!name) {
             throw `Missing Business Name`
         }
@@ -26,6 +26,13 @@ class YelpController {
         } catch (e) {
             console.log(e)
             throw `Something went wrong with yelp search`
+        }
+
+        if (!req.user) {
+            return response(res, {
+                code: 200,
+                data: data.jsonBody.businesses
+            })
         }
         const userInterests = await Interests.query().where({
             userId: decodeId(req.user.id)
@@ -43,7 +50,7 @@ class YelpController {
 
         return response(res, {
             code: 200,
-            data
+            data: data.jsonBody.businesses
         })
     }
 
