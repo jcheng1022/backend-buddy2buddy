@@ -2,16 +2,27 @@ import bodyParser from 'body-parser';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
-import response from "./utils/response";
-import Tasks from './models/Interests.model'
 import userRouter from "./routes/users.routes";
-import {yelpClient} from "./services/yelp";
-import yelpRouter from "./routes/yelp.routes";
-import plannerRouter from "./routes/planner.routes";
-import NotificationService from "./services/core/notifications.services";
-import servicesRouter from "./routes/services.routes";
+import activityRouter from './routes/activity.routes'
+import admin from 'firebase-admin'
+// import multer from 'multer';
+const { initializeApp, applicationDefault, cert } = require('firebase-admin/app');
+const { getFirestore, Timestamp, FieldValue, Filter } = require('firebase-admin/firestore');
+const { getStorage } = require('firebase-admin/storage');
 
+// const upload = multer();
 dotenv.config();
+
+
+let firebaseApp;
+if (process.env.FIREBASE_ADMIN) {
+    firebaseApp = initializeApp({
+        credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_ADMIN)),
+        storageBucket: process.env.STORAGE_BUCKET
+    })
+    }
+
+const db = getFirestore();
 
 
 const app = express();
@@ -37,17 +48,21 @@ const options = knexStringcase({
 
 
 
+
+
 const knexInstance = knex(options)
 Model.knex(knexInstance)
 app.use(bodyParser.urlencoded());
 app.use(bodyParser.json());
 app.use(cors())
 
+// app.use(upload.single('file'))
+
+
 
 app.use('/user', userRouter);
-app.use('/yelp', yelpRouter);
-app.use('/planner', plannerRouter);
-app.use('/services', servicesRouter);
+app.use('/activity', activityRouter);
+
 
 
 
@@ -60,39 +75,10 @@ app.get('/', async (req, res) => {
     res.send('Hi!')
 });
 
-app.get('/yelp', async (req,res) => {
+app.get('/test', async (req, res) => {
 
-    let data = await yelpClient.search({
-        term: 'arcades',
-        location: 'new york, ny'
-    })
-
-    data = data.jsonBody.businesses
-
-
-    return response(
-        res, {
-            code: 400,
-            data
-        }
-    )
+    res.send('test')
 })
-app.post('/test', async (req, res) => {
-    await NotificationService.deliverNotification({
-        ids: [7,8],
-        senderId: 9,
-        message: 'testing BAtch from sender 9',
-        // senderId: 8
-    })
-
-    return response(
-        res, {
-            code: 400,
-            message: 'test'
-        }
-    )
-});
-
 
 
 

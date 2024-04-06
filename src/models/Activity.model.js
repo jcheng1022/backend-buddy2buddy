@@ -1,14 +1,13 @@
 const Model = require('./base')
-const Users = require("./Users.model");
 
-class PlanEvents extends Model {
+class Activity extends Model {
     static get tableName() {
-        return "plan_events"
+        return "activity"
     }
 
 
     static get encodedIdAttributes() {
-        return ["id", 'planId']
+        return ["id","userId" ]
     }
 
     static get jsonAttributes() {
@@ -19,26 +18,28 @@ class PlanEvents extends Model {
         return ["createdAt", "updatedAt"]
     }
 
-
     static get relationMappings() {
-
-        const Plans = require('../models/Plans.model')
+        const Users = require('../models/Users.model')
         return {
-            plan: {
+            user: {
                 relation: Model.BelongsToOneRelation,
-                modelClass: Plans,
+                modelClass: Users,
                 join: {
-                    from: `${Plans.tableName}.id`,
-                    to: `${PlanEvents.tableName}.planId`,
+                    from: `${Users.tableName}.id`,
+                    to: `${Activity.tableName}.userId`,
                 }
             },
         }
     }
 
     $formatJson(json) {
-        return super.$formatJson(json)
+
+        const data = super.$formatJson(json)
+
+
+        return data
     }
 }
 
 
-module.exports = PlanEvents;
+module.exports = Activity;

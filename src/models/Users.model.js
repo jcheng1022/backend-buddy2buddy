@@ -26,7 +26,7 @@ class Users extends Model {
 
         const data = super.$formatJson(json)
 
-        delete data.supabaseUuid;
+        delete data.firebaseUuid;
         delete data.createdAt;
         return data
     }
